@@ -1,8 +1,29 @@
+import pickle
 import datetime as dt
 from dataclasses import dataclass
 from datetime import timedelta as td
 from datetime import datetime as dtdt
 
+def get_upcoming_birthdays(users=None):
+    try:
+        congratulation_data = []
+        today = dtdt.today().date()
+        future_day = today + td(days=7)
+        for user in users:
+            birthday = dtdt.strptime(user["birthday"], "%Y.%m.%d").date()
+            birthday = dt.date(today.year, birthday.month, birthday.day)
+            if (today < birthday) and (birthday <= future_day):
+                if birthday.weekday() == 5:
+                    birthday = birthday + td(days=2)
+                    congratulation_data.append({'name': user['name'], 'congratulation_date': birthday.strftime("%Y-%m-%d")})
+                elif birthday.weekday() == 6:
+                    birthday = birthday + td(days=1)
+                    congratulation_data.append({'name': user['name'], 'congratulation_date': birthday.strftime("%Y-%m-%d")})
+                else:
+                    congratulation_data.append({'name': user['name'], 'congratulation_date': birthday.strftime("%Y-%m-%d")})
+        return congratulation_data
+    except Exception:
+        print("Something bad")
 
 def input_error(func):
     def inner(*args, **kwargs):
@@ -36,15 +57,15 @@ class Name(BaseClass):
 class Birthday(BaseClass):
     def __init__(self, birthday):
         try:
-            birthday = dtdt.strptime(birthday, "%Y.%m.%d").date()
+            self.value = dtdt.strptime(birthday, "%Y.%m.%d").date()
         except ValueError:
-            raise ValueError("Invalid date format. Use DD.MM.YYYY")
+            raise ValueError("Invalid date format. Use YYYY.MM.DD")
 
 
 @dataclass
 class Phone(BaseClass):
     def __str__(self):
-        return self.value if len(self.value) == 10 else f'{self.value} format must be 0970000000'
+        return (self.value if len(self.value) == 10 else f'{self.value} format must be 0970000000')
 
 
 class Record:
@@ -56,7 +77,6 @@ class Record:
     def add_phone(self, phone):
         if phone not in map(str, self.phones):
             self.phones.append(Phone(phone))
-            
         else:
             return 'Phone already exists in Addressbook'
 
@@ -68,11 +88,15 @@ class Record:
         return self.phones
 
     def add_birthday(self, birthday):
-        if birthday not in map(str, self.birthday):
+        if self.birthday is None:
             self.birthday = Birthday(birthday)
-            print("Birthday added")
+            return "Birthday added"
         else:
             return 'Birthday already exists in Addressbook'
+
+    def __str__(self):
+        birthday_str = f"birthday: {self.birthday}" if self.birthday else ""
+        return f"Contact name: {self.name}, phones: {', '.join(map(str, self.phones))}, {birthday_str}"
 
     def __str__(self):
         return f"Contact name: {self.name}, phones: {', '.join(map(str, self.phones))}, birthday: {self.birthday}"
@@ -82,7 +106,7 @@ class AddressBook(dict):
     def add_record(self, record):
         if record.name.value not in self:
             self[record.name.value] = record
-            return f'{record.name.value} added'
+            return record.name.value
         else:
             return f'{record.name.value} is already in the Addressbook'
 
@@ -91,9 +115,35 @@ class AddressBook(dict):
 
     def delete_record(self, name):
         return f'{name} deleted from Addressbook' if self.pop(name, None) else f'{name} not found in Addressbook'
+     
+    def save_data(book, filename="addressbook.pkl"):
+            with open(filename, "wb") as f:
+                pickle.dump(book, f)
+
+    def load_data(filename="addressbook.pkl"):
+        try:
+            with open(filename, "rb") as f:
+                return pickle.load(f)
+        except FileNotFoundError:
+                book = AddressBook()
+                return book
+
+    def add_birthday(self, name, birthday):
+        record = self.get(name)
+        if record:
+            return record.add_birthday(birthday)
+        else:
+            return f"{name} not found in Addressbook"
+
+    def show_birthday(self, name):
+        record = self.get(name)
+        return record.birthday.value if record and record.birthday else f"{name} has no birthday in Addressbook"
+
 
     def get_upcoming_birthdays(self):
-        pass
+        users = [{'name': record.name.value, 'birthday': record.birthday.value.strftime("%Y.%m.%d")} for record in self.values() if record.birthday]
+        congratulation_data = get_upcoming_birthdays(users)
+        return congratulation_data
 
 
 @input_error
@@ -106,10 +156,15 @@ def parse_input(user_input):
 @input_error
 def add_contact(args, book):
     name, phone = args
-    record = Record(name)
-    record.add_phone(phone)
-    book.add_record(record)
-    return None
+    if len(phone) == 10:
+        record = Record(name)
+        record.add_phone(phone)
+        book.add_record(record)
+        return "Contact added"
+    else:
+        return "format must be 0970000000"
+
+        
 
 
 @input_error
@@ -136,35 +191,36 @@ def show_all(book):
 
 @input_error
 def add_birthday(args, book):
-    # реалізація
-    pass
+    name, birthday = args
+    result = book.add_birthday(name, birthday)
+    return result
 
 
 @input_error
 def show_birthday(args, book):
-    # реалізація
-    pass
+    name = args[0]
+    result = book.show_birthday(name)
+    return result
 
 
 @input_error
 def birthdays(args, book):
-    congratulation_data = []
-    today = dtdt.today().date()
-    future_day = today + td(days=7)
-    # реалізація
-    pass
+    congratulation_data = book.get_upcoming_birthdays()
+    for data in congratulation_data:
+        print(f"Upcoming birthday: {data['name']}, date: {data['congratulation_date']}")
     return congratulation_data
 
 
 def main():
     print("Welcome to the assistant bot!")
-    book = AddressBook()
+    book = AddressBook.load_data("addressbook.pkl")
     while True:
         user_input = input("Enter a command: ")
         command, *args = parse_input(user_input)
 
         if command in ["close", "exit"]:
             print("Good bye!")
+            AddressBook.save_data(book)
             break
         elif command == "hello":
             print("How can I help you?")
