@@ -5,8 +5,8 @@ from datetime import timedelta as td
 from datetime import datetime as dtdt
 
 
-
 def input_error(func):
+    """Decorator for handling input errors."""
     def inner(*args, **kwargs):
         try:
             return func(*args, **kwargs)
@@ -20,8 +20,10 @@ def input_error(func):
             return f'Something wrong {e}'
     return inner
 
+
 @input_error
 def get_upcoming_birthdays(book):
+    """Get upcoming birthdays data."""
     congratulation_data = []
     today = dtdt.today().date()
     future_day = today + td(days=7)
@@ -32,16 +34,21 @@ def get_upcoming_birthdays(book):
             if (today < birthday_date) and (birthday_date <= future_day):
                 if birthday_date.weekday() == 5:
                     birthday_date = birthday_date + td(days=2)
-                    congratulation_data.append({'name': record.name.value, 'congratulation_date': birthday_date.strftime("%Y-%m-%d")})
+                    congratulation_data.append({'name': record.name.value,
+                                                'congratulation_date': birthday_date.strftime("%Y-%m-%d")})
                 elif birthday_date.weekday() == 6:
                     birthday_date = birthday_date + td(days=1)
-                    congratulation_data.append({'name': record.name.value, 'congratulation_date': birthday_date.strftime("%Y-%m-%d")})
+                    congratulation_data.append({'name': record.name.value,
+                                                'congratulation_date': birthday_date.strftime("%Y-%m-%d")})
                 else:
-                    congratulation_data.append({'name': record.name.value, 'congratulation_date': birthday_date.strftime("%Y-%m-%d")})
+                    congratulation_data.append({'name': record.name.value,
+                                                'congratulation_date': birthday_date.strftime("%Y-%m-%d")})
     return congratulation_data
+
 
 @dataclass
 class BaseClass:
+    """Base class for data classes."""
     value: str
 
     def __str__(self):
@@ -50,11 +57,13 @@ class BaseClass:
 
 @dataclass
 class Name(BaseClass):
+    """Data class for representing a name."""
     pass
 
 
 @dataclass
 class Birthday(BaseClass):
+    """Data class for representing a birthday."""
     def __init__(self, birthday):
         try:
             self.value = dtdt.strptime(birthday, "%Y-%m-%d").date()
@@ -64,11 +73,13 @@ class Birthday(BaseClass):
 
 @dataclass
 class Phone(BaseClass):
+    """Data class for representing a phone."""
     def __str__(self):
         return self.value
 
 
 class Record:
+    """Class representing a contact record."""
     def __init__(self, name):
         self.name = Name(name)
         self.phones = []
@@ -90,17 +101,14 @@ class Record:
     def add_birthday(self, birthday):
         self.birthday = Birthday(birthday)
         return "Birthday added or changed"
-        
 
     def __str__(self):
         birthday_str = f"birthday: {self.birthday}" if self.birthday else ""
         return f"Contact name: {self.name}, phones: {', '.join(map(str, self.phones))}, {birthday_str}"
 
-    def __str__(self):
-        return f"Contact name: {self.name}, phones: {', '.join(map(str, self.phones))}, birthday: {self.birthday}"
-
 
 class AddressBook(dict):
+    """Class representing an address book."""
     def add_record(self, record):
         if record.name.value not in self:
             self[record.name.value] = record
@@ -113,18 +121,18 @@ class AddressBook(dict):
 
     def delete_contact(self, name):
         return f'{name} deleted from Addressbook' if self.pop(name, None) else f'{name} not found in Addressbook'
-     
+
     def save_data(book, filename="addressbook.pkl"):
-            with open(filename, "wb") as f:
-                pickle.dump(book, f)
+        with open(filename, "wb") as f:
+            pickle.dump(book, f)
 
     def load_data(filename="addressbook.pkl"):
         try:
             with open(filename, "rb") as f:
                 return pickle.load(f)
         except FileNotFoundError:
-                book = AddressBook()
-                return book
+            book = AddressBook()
+            return book
 
     def add_birthday(self, name, birthday):
         record = self.get(name)
@@ -137,15 +145,16 @@ class AddressBook(dict):
         record = self.get(name)
         return record.birthday.value if record and record.birthday else f"{name} has no birthday in Addressbook"
 
-
     def get_upcoming_birthdays(self):
-        users = [{'name': record.name.value, 'birthday': record.birthday.value.strftime("%Y-%m-%d")} for record in self.values() if record.birthday]
+        users = [{'name': record.name.value, 'birthday': record.birthday.value.strftime("%Y-%m-%d")}
+                 for record in self.values() if record.birthday]
         congratulation_data = get_upcoming_birthdays(users)
         return congratulation_data
 
 
 @input_error
 def parse_input(user_input):
+    """Parse user input."""
     cmd, *args = user_input.split()
     cmd = cmd.strip().lower()
     return cmd, *args
@@ -153,6 +162,7 @@ def parse_input(user_input):
 
 @input_error
 def add_contact(args, book):
+    """Add a contact to the address book."""
     name, phone = args
     if len(phone) == 10:
         record = Record(name)
@@ -162,11 +172,10 @@ def add_contact(args, book):
     else:
         return "format must be 0970000000"
 
-        
-
 
 @input_error
 def change_contact(args, book):
+    """Change contact information in the address book."""
     name, phone = args
     for key, record in book.items():
         if key == name:
@@ -177,24 +186,29 @@ def change_contact(args, book):
 
 @input_error
 def show_phone(args, book):
+    """Show phone information for a contact in the address book."""
     name = args[0]
     record = book.get(name)
     return record.find_phone() if record else f"{name} not found in Addressbook"
 
+
 @input_error
 def delete_contact(args, book):
+    """Delete a contact from the address book."""
     name = args[0]
     result = book.delete_contact(name)
     return result
 
 
 def show_all(book):
+    """Show all contacts in the address book."""
     for key, record in book.items():
         print(record)
 
 
 @input_error
 def add_birthday(args, book):
+    """Add or change the birthday of a contact in the address book."""
     name, birthday = args
     result = book.add_birthday(name, birthday)
     return result
@@ -202,6 +216,7 @@ def add_birthday(args, book):
 
 @input_error
 def show_birthday(args, book):
+    """Show the birthday of a contact in the address book."""
     name = args[0]
     result = book.show_birthday(name)
     return result
@@ -209,16 +224,18 @@ def show_birthday(args, book):
 
 @input_error
 def birthdays(args, book) -> str:
+    """Get upcoming birthdays and format messages."""
     congratulation_data = get_upcoming_birthdays(book)
     
     messages = []
     for data in congratulation_data:
-        message = f"Предстоящий день рождения: {data['name']}, дата: {data['congratulation_date']}"
+        message = f"Upcoming birthday: {data['name']}, Date: {data['congratulation_date']}"
         messages.append(message)
     
     return "\n".join(messages)
-
+    
 def main():
+    """Main function"""
     print("Welcome to the assistant bot!")
     book = AddressBook.load_data("addressbook.pkl")
     while True:
