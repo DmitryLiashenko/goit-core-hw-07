@@ -4,26 +4,7 @@ from dataclasses import dataclass
 from datetime import timedelta as td
 from datetime import datetime as dtdt
 
-def get_upcoming_birthdays(users=None):
-    try:
-        congratulation_data = []
-        today = dtdt.today().date()
-        future_day = today + td(days=7)
-        for user in users:
-            birthday = dtdt.strptime(user["birthday"], "%Y.%m.%d").date()
-            birthday = dt.date(today.year, birthday.month, birthday.day)
-            if (today < birthday) and (birthday <= future_day):
-                if birthday.weekday() == 5:
-                    birthday = birthday + td(days=2)
-                    congratulation_data.append({'name': user['name'], 'congratulation_date': birthday.strftime("%Y-%m-%d")})
-                elif birthday.weekday() == 6:
-                    birthday = birthday + td(days=1)
-                    congratulation_data.append({'name': user['name'], 'congratulation_date': birthday.strftime("%Y-%m-%d")})
-                else:
-                    congratulation_data.append({'name': user['name'], 'congratulation_date': birthday.strftime("%Y-%m-%d")})
-        return congratulation_data
-    except Exception:
-        print("Something bad")
+
 
 def input_error(func):
     def inner(*args, **kwargs):
@@ -39,6 +20,25 @@ def input_error(func):
             return f'Something wrong {e}'
     return inner
 
+@input_error
+def get_upcoming_birthdays(book):
+    congratulation_data = []
+    today = dtdt.today().date()
+    future_day = today + td(days=7)
+    for record in book.values():
+        if record.birthday:
+            birthday = record.birthday.value
+            birthday_date = dt.date(today.year, birthday.month, birthday.day)
+            if (today < birthday_date) and (birthday_date <= future_day):
+                if birthday_date.weekday() == 5:
+                    birthday_date = birthday_date + td(days=2)
+                    congratulation_data.append({'name': record.name.value, 'congratulation_date': birthday_date.strftime("%Y-%m-%d")})
+                elif birthday_date.weekday() == 6:
+                    birthday_date = birthday_date + td(days=1)
+                    congratulation_data.append({'name': record.name.value, 'congratulation_date': birthday_date.strftime("%Y-%m-%d")})
+                else:
+                    congratulation_data.append({'name': record.name.value, 'congratulation_date': birthday_date.strftime("%Y-%m-%d")})
+    return congratulation_data
 
 @dataclass
 class BaseClass:
@@ -57,15 +57,15 @@ class Name(BaseClass):
 class Birthday(BaseClass):
     def __init__(self, birthday):
         try:
-            self.value = dtdt.strptime(birthday, "%Y.%m.%d").date()
+            self.value = dtdt.strptime(birthday, "%Y-%m-%d").date()
         except ValueError:
-            raise ValueError("Invalid date format. Use YYYY.MM.DD")
+            raise ValueError("Invalid date format. Use YYYY-MM-DD")
 
 
 @dataclass
 class Phone(BaseClass):
     def __str__(self):
-        return (self.value if len(self.value) == 10 else f'{self.value} format must be 0970000000')
+        return self.value
 
 
 class Record:
@@ -88,11 +88,9 @@ class Record:
         return self.phones
 
     def add_birthday(self, birthday):
-        if self.birthday is None:
-            self.birthday = Birthday(birthday)
-            return "Birthday added"
-        else:
-            return 'Birthday already exists in Addressbook'
+        self.birthday = Birthday(birthday)
+        return "Birthday added or changed"
+        
 
     def __str__(self):
         birthday_str = f"birthday: {self.birthday}" if self.birthday else ""
@@ -113,7 +111,7 @@ class AddressBook(dict):
     def find_record(self, name):
         return str(self.get(name, f'{name} not found in Addressbook'))
 
-    def delete_record(self, name):
+    def delete_contact(self, name):
         return f'{name} deleted from Addressbook' if self.pop(name, None) else f'{name} not found in Addressbook'
      
     def save_data(book, filename="addressbook.pkl"):
@@ -141,7 +139,7 @@ class AddressBook(dict):
 
 
     def get_upcoming_birthdays(self):
-        users = [{'name': record.name.value, 'birthday': record.birthday.value.strftime("%Y.%m.%d")} for record in self.values() if record.birthday]
+        users = [{'name': record.name.value, 'birthday': record.birthday.value.strftime("%Y-%m-%d")} for record in self.values() if record.birthday]
         congratulation_data = get_upcoming_birthdays(users)
         return congratulation_data
 
@@ -183,6 +181,12 @@ def show_phone(args, book):
     record = book.get(name)
     return record.find_phone() if record else f"{name} not found in Addressbook"
 
+@input_error
+def delete_contact(args, book):
+    name = args[0]
+    result = book.delete_contact(name)
+    return result
+
 
 def show_all(book):
     for key, record in book.items():
@@ -204,12 +208,15 @@ def show_birthday(args, book):
 
 
 @input_error
-def birthdays(args, book):
-    congratulation_data = book.get_upcoming_birthdays()
+def birthdays(args, book) -> str:
+    congratulation_data = get_upcoming_birthdays(book)
+    
+    messages = []
     for data in congratulation_data:
-        print(f"Upcoming birthday: {data['name']}, date: {data['congratulation_date']}")
-    return congratulation_data
-
+        message = f"Предстоящий день рождения: {data['name']}, дата: {data['congratulation_date']}"
+        messages.append(message)
+    
+    return "\n".join(messages)
 
 def main():
     print("Welcome to the assistant bot!")
@@ -230,6 +237,8 @@ def main():
             print(change_contact(args, book))
         elif command == "phone":
             print(show_phone(args, book))
+        elif command == "delete":
+            print(delete_contact(args, book))
         elif command == "all":
             show_all(book)
         elif command == "add-birthday":
@@ -237,10 +246,10 @@ def main():
         elif command == "show-birthday":
             print(show_birthday(args, book))
         elif command == "birthdays":
-            print(birthdays(args, book))
+            result = birthdays(args, book)
+            print(result)
         else:
             print("Invalid command.")
-
 
 if __name__ == "__main__":
     main()
