@@ -1,4 +1,3 @@
-
 from datetime import timedelta as td
 from datetime import datetime as dtdt
 import datetime as dt
